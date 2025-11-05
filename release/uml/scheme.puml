@@ -1,0 +1,229 @@
+@startuml
+'https://plantuml.com/class-diagram
+skinparam classAttributeIconSize 0
+
+class Main {
+    + {static} main(args : String[])
+}
+
+class DirecctoryDoors {
+    - {static} allDoors : ArrayList<Door>
+    + {static} makeDoors()
+    + {static} findDoorById(id : String) : Door
+    + {static} getAllDoors() : ArrayList<Door>
+}
+
+DirecctoryDoors  -down-> "*" Door : allDoors
+
+class DirecctoryGroups {
+    - {static} groups : ArrayList<Group>
+    + {static} makeUsersGroup()
+    + {static} findUserByCredential(cred : String) : User
+}
+
+DirecctoryGroups  -down-> "*" Group : groups
+
+class DirecctoryAreas {
+    - {static} root : Area
+    + {static} makeAreas()
+    + {static} getRoot() : Area
+    + {static} findAreaById(areaID : String) : Area
+}
+
+DirecctoryAreas  -down-> "1" Area : root
+
+class Door {
+    - id : String
+    - closed : boolean = true
+    - state : State = new StateUnlocked()
+    - fromSpace : Space = null
+    - toSpace : Space = null
+    + Door(id : String)
+    + Door(id : String, from : Space, to : Space)
+    + Door(id : String, closed : boolean,\n\tstate : State, from : Space, to : Space)
+    + processRequest(request : RequestReader)
+    - doAction(action : String)
+    + toString() : String
+    + toJson() : JSONObject
+}
+
+Door --right-> "1" Space : fromSpace
+Door --right-> "1" Space : toSpace
+Door -right-> "1" State : state
+
+class Group {
+    - name : String = "blank"
+    - restrictions : Restriction = new Restriction
+    - group_users : User = new ArrayList<>
+    + Group()
+    + Group(name : String)
+    + Group(name : String, restriction : Restriction)
+    + authorize(request : RequestReader) : boolean
+}
+
+Group "1" <-down-> "*" User : users
+Group -right-> "1" Restriction : restrictions
+
+class User {
+    - name : String
+    - credential : String
+    - group : Group
+    + User(name : String, cred : String)
+    + authorize(request : RequestReader) : boolean
+    + toString() : String
+}
+
+abstract class Area {
+    # id : String
+    # parent : Area = null;
+    + Area(id : String)
+    + Area(id : String, parent : Area)
+    + {abstract} getAreaById(id : String) : Area
+    + {abstract} getDoors() : List<Door>
+}
+
+Area -> "1" Area : parent
+Area -[hidden]-> Space /' Structural arrow, the order of the class would be a mess. '/
+
+class Partition {
+    - sub_areas : List<AccessComponent> = ArrayList
+    + Partition(id : String)
+    + Partition(id : String, parent : Area)
+    + Partition(id : String, parent : Area,\n\tsub_areas : ArrayList<Area>)
+    + doAction(action : String)
+    + getAreaById(id : String) : Area
+    + getDoors() : List<Door>
+}
+
+Partition -up-> "*" Area : sub_areas
+Partition --|> Area
+Partition -[hidden]-> DirecctoryDoors /' Structural arrow, the order of the class would be a mess. '/
+
+
+class Space extends Area {
+    - doors : List<Door> = ArrayList
+    + Space(id : String)
+    + addDoor(door : Door)
+    + getAreaById(id : String) : Area
+    + getDoors() : List<Door>
+}
+
+Space --> "*" Door : doors
+
+interface State {
+    + {abstract} open(door : Door)
+    + {abstract} close(door : Door)
+    + {abstract} lock() : State
+    + {abstract} unlock() : State
+    + {abstract} unlockShortly(door : Door) : State
+}
+
+class StateLocked extends State {
+    + open(door : Door)
+    + close(door : Door)
+    + lock() : State
+    + unlock() : State
+    + unlockShortly(door : Door) : State
+}
+
+class StateUnlocked extends State {
+    + open(door : Door)
+    + close(door : Door)
+    + lock() : State
+    + unlock() : State
+    + unlockShortly(door : Door) : State
+}
+
+class StatePropped extends State {
+    + open(door : Door)
+    + close(door : Door)
+    + lock() : State
+    + unlock() : State
+    + unlockShortly(door : Door) : State
+}
+
+class StateUnlockedShortly extends State {
+    + open(door : Door)
+    + close(door : Door)
+    + lock() : State
+    + unlock() : State
+    + unlockShortly(door : Door) : State
+}
+
+class Actions {
+    - {static} LOCK : String = "lock"
+    - {static} UNLOCK : String = "unlock"
+    - {static} UNLOCK_SHORTLY : String = "unlock_shortly"
+    - {static} OPEN : String = "open"
+    - {static} CLOSE : String = "close"
+}
+
+class Restriction {
+    # next : Restriction = null
+    + Restriction()
+    + Restriction(restriction : Restriction)
+    + authorize(request : RequestReader) : boolean
+}
+
+Restriction "1" <-- Restriction : next
+
+class SpaceRestriction extends Restriction {
+    - restrictedSpaces : List<Space>
+    + SpaceRestriction(spaces : List<Space>)
+    + SpaceRestriction(spaces : List<Space>, next : Restriction)
+    + authorize(request : RequestReader) : boolean
+}
+
+SpaceRestriction -up-> Space
+
+class ActionRestriction extends Restriction {
+    - restrictedActions : List<String>
+    + ActionRestriction(actions : List<String>, next Restriction)
+    + ActionRestriction(actions : List<String>)
+    + authorize(request : RequestReader) : boolean
+}
+
+class TimerRestriction extends Restriction {
+    - startDate : LocalDateTime
+    - endDate : LocalDateTime
+    - workHours : List<WorkHour>
+    + TimerRestriction(start : LocalDateTime,\n\tend : LocalDateTime, next Restriction)
+    + TimerRestriction(start : LocalDateTime,\n\tend : LocalDateTime)
+    + addWorkHours(day : DayOfWeek,\n\tsHour : LocalTime, eHour : LocalTime)
+    + authorize(request : RequestReader) : boolean
+}
+
+TimerRestriction -down-> "*" WorkHour : workHours
+
+class WorkHour {
+    - day : DayOfWeek
+    - startHour : LocalTime
+    - endHour : LocalTime
+    + WorkHour(day : DayOfWeek,\n\tsHour : LocalTime,\n\t\teHour : LocalTime)
+}
+
+' Observer Pattern Classes
+class Clock {
+    - {static} observers : List<DoorObserver> = ArrayList
+    + {static} addObserver(observer : DoorObserver)
+    + {static} removeObserver(observer : DoorObserver)
+    + {static} notifyObservers()
+}
+
+interface DoorObserver {
+    + {abstract} update()
+}
+
+class StateUnlockedShortly extends State implements DoorObserver {
+    + open(door : Door)
+    + close(door : Door)
+    + lock() : State
+    + unlock() : State
+    + unlockShortly(door : Door) : State
+    + update()
+}
+
+Clock --> "*" DoorObserver : observers
+StateUnlockedShortly --> Clock : implements DoorObserver
+
+@enduml
